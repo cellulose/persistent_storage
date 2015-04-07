@@ -197,7 +197,7 @@ in order to craft an excellent pull request:
    ```
 
    This command will compile the code in your branch and use that
-   version of Elixir to run the tests. This is needed to ensure your changes can
+   code to run the tests. This is needed to ensure your changes can
    pass all the tests.
 
 6. Push your topic branch up to your fork:
