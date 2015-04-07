@@ -1,4 +1,3 @@
-![cellulose](https://github.com/cellulose/cellulose.github.io/raw/master/images/logo/logo.png)
 # Contributing to Cellulose Projects
 
 Please take a moment to review this document in order to make the contribution
