@@ -83,7 +83,7 @@ the first paragraph is considered to be a short summary.
 For functions, macros and callbacks say what it will do. For example write
 something like:
 
-```cell
+```elixir
 @doc """
 Returns only those elements for which `fun` is `true`.
 
@@ -95,7 +95,7 @@ def filter(collection, fun) ...
 For modules, protocols and types say what it is. For example write
 something like:
 
-```cell
+```elixir
 defmodule Main do
   @moduledoc """
   Main module that handle command line execution.
@@ -119,7 +119,7 @@ documentation string can contain the details, for example when a value and when
 If possible include examples, preferably in a form that works with doctests. For
 example:
 
-```cell
+```elixir
 @doc """
 Return only those elements for which `fun` is `true`.
 
@@ -193,7 +193,7 @@ in order to craft an excellent pull request:
 5. Make sure all the tests are still passing.
 
    ```bash
-   make test
+   mix test
    ```
 
    This command will compile the code in your branch and use that
