@@ -4,14 +4,14 @@ defmodule PersistentStorage do
   Perisistently store erlang terms to the filesystem
 
   A trivial way to write simple stuff that you might need "next time you run".
-  
+
   Implemented as a singleton -- you can only have one instance, for simplicity.
 
   Performance is good because although each term is stored as a file, the reads
   come from a cache, so there is no need to cache locally.
-  
+
   ## Examples
-  
+
   Setup PersistentStorage, including the path in the filesystem where files
   will be stored
 
@@ -22,14 +22,14 @@ defmodule PersistentStorage do
       PersistentStorage.put :router_ip_address, {192,168,15,1}
       ...or...
       PersistentStorage.put router_ip_address: {192,168,15,1}
-  
+
   Then, to retrieve the stored data:
-      
+
       PersistentStorage.get :router_ip_address
   """
   @ets_table  :persistent_storage_cache
   @path_key   :__storage_path__
-  
+
   @type key :: any
   @type value :: any
   @type t :: list | map
@@ -38,9 +38,9 @@ defmodule PersistentStorage do
   @doc """
   Sets up `ets_table` and path where persistent files will be written
   to persistent drive.
-  
+
   ## Options
-  
+
   The `:path` option is used to specify the filesystem path where files
   will be written. Default path is `/tmp`
   """
@@ -55,41 +55,43 @@ defmodule PersistentStorage do
 
   @doc """
   Put the value of each key passed into storage (keys must be atoms)
-  
+
   ## Examples
-  
+
       PersistentStorage.put router_ip_address: {192,168,15,1}
       PersistentStorage.put [store: :something, multiple: :this_time]
-  
+
   """
-  @spec put(t) :: {:ok, t}
-  def put(dict) do
+  @spec put(t) :: :ok
+  def put(dict) when is_list(dict) do
     Enum.map dict, fn({k,v}) -> put(k,v) end
-    {:ok, dict}
+    :ok
   end
 
   @doc """
   Put a single term into storage under a key (key must be an atom)
-  
+
   ## Examples
-  
+
       PersistentStorage.put :router_ip_address, {192,168,15,1}
   """
-  @spec put(key, value) :: {:ok, {key, value}}
+  @spec put(key, value) :: :ok
   def put(key, term) do
     :ets.insert @ets_table, [{key, term}]
     File.write key_to_file_path(key), :erlang.term_to_binary(term)
-    {:ok, {key, term}}
+    :ok
   end
 
   @doc """
-  Get value for the given key. If dict does not contain key, returns 
+  Get value for the given key. If dict does not contain key, returns
   default (or nil if not provided).
-  
+
+  If setup/1 has not executed previously `:error` will be returned
+
   Uses cache if possible, otherwise reads from disk
 
   ## Examples
-  
+
       PersistentStorage.get :router_ip_address
       PersistentStorage.get :router_ip_address, {0,0,0,0}
   """
@@ -104,9 +106,10 @@ defmodule PersistentStorage do
   @doc """
   Removes keys in dictionary from table and persistent drive
   """
-  @spec delete(t) :: :ok | list
+  @spec delete(t) :: :ok
   def delete(dict) when is_list(dict) do
-    Enum.map dict, fn(k) -> delete(k) end
+    Enum.map(dict, fn(k) -> delete(k) end)
+    :ok
   end
 
   @doc "Remove key from table and persistent drive"
