@@ -86,8 +86,6 @@ defmodule PersistentStorage do
   Get value for the given key. If dict does not contain key, returns
   default (or nil if not provided).
 
-  If setup/1 has not executed previously `:error` will be returned
-
   Uses cache if possible, otherwise reads from disk
 
   ## Examples
