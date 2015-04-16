@@ -78,7 +78,7 @@ defmodule PersistentStorage do
   @spec put(key, value) :: :ok
   def put(key, term) do
     :ets.insert @ets_table, [{key, term}]
-    File.write key_to_file_path(key), :erlang.term_to_binary(term)
+    File.write! key_to_file_path(key), :erlang.term_to_binary(term)
     :ok
   end
 
