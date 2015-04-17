@@ -3,7 +3,7 @@ defmodule PersistentStorage.Mixfile do
 
   def project do
     [app: :persistent_storage,
-     version: "0.8.0",
+     version: version,
      elixir: "~> 1.0",
      source_url: "https://github.com/cellulose/persistent_storage",
      homepage_url: "http://cellulose.io",
@@ -13,5 +13,12 @@ defmodule PersistentStorage.Mixfile do
   defp deps do
     [{:earmark, "~> 0.1", only: :dev},
      {:ex_doc, "~> 0.7", only: :dev}]
+  end
+
+  defp version do
+    case File.read("VERSION") do
+      {:ok, ver} -> String.strip ver
+      _ -> "0.0.0-dev"
+    end
   end
 end
