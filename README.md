@@ -1,16 +1,18 @@
 # PersistentStorage
 
+[![Build Status](https://travis-ci.org/joelbyler/persistent_storage.svg?branch=master)](https://travis-ci.org/joelbyler/persistent_storage)
+
   Perisistently stores erlang terms to the filesystem
 
   A trivial way to write simple stuff that you might need "next time you run".
-  
+
   Implemented as a singleton -- you can only have one instance, for simplicity.
 
   Performance is good because although each term is stored as a file, the reads
   come from a cache, so there is no need to cache locally.
-  
+
 ## Usage Example
-  
+
   Setup PersistentStorage, including the path in the filesystem where files
   will be stored. This must be called after each boot cycle before put/1, put/2
   or get/1, get/2 are called.
@@ -23,11 +25,11 @@
       PersistentStorage.put :router_ip_address, {192,168,15,1}
       ...or...
       PersistentStorage.put router_ip_address: {192,168,15,1}
-  
+
   Then, to retrieve the stored data:
-      
+
       PersistentStorage.get :router_ip_address
-      
+
 
 ## Contributing
 
