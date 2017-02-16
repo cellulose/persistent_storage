@@ -13,7 +13,7 @@ defmodule PersistentStorage.Mixfile do
      name: "PersistentStorage",
      docs: [
        source_ref: "v#{@version}", main: "PersistentStorage",
-       source_url: "https://github.com/ghitchens/persistent_storage",
+       source_url: "https://github.com/cellulose/persistent_storage",
 #       main: "extra-readme",
        extras: [ "README.md", "CHANGELOG.md"] ]]
   end
@@ -29,7 +29,7 @@ defmodule PersistentStorage.Mixfile do
   defp package do
     [ maintainers: ["Garth Hitchens", "Chris Dutton"],
       licenses: ["MIT"],
-      links: %{github: "https://github.com/ghitchens/persistent_storage"},
+      links: %{github: "https://github.com/cellulose/persistent_storage"},
       files: ~w(lib config) ++ ~w(README.md CHANGELOG.md LICENSE mix.exs) ]
   end
 end
