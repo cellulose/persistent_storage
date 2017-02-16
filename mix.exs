@@ -1,7 +1,7 @@
 defmodule PersistentStorage.Mixfile do
   use Mix.Project
 
-  @version "0.10.0"
+  @version "0.10.1"
 
   def project do
     [app: :persistent_storage,
@@ -23,7 +23,7 @@ defmodule PersistentStorage.Mixfile do
   end
 
   defp deps do
-    [{:ex_doc, "~> 0.11", only: :dev}]
+    [{:ex_doc, "~> 0.12", only: :dev}]
   end
 
   defp package do
