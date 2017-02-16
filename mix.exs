@@ -28,7 +28,7 @@ defmodule PersistentStorage.Mixfile do
 
   defp package do
     [ maintainers: ["Garth Hitchens", "Chris Dutton"],
-      licenses: ["MIT"],
+      licenses: ["Apache-2.0"],
       links: %{github: "https://github.com/cellulose/persistent_storage"},
       files: ~w(lib config) ++ ~w(README.md CHANGELOG.md LICENSE mix.exs) ]
   end
