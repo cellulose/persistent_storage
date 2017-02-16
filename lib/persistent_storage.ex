@@ -53,26 +53,33 @@ defmodule PersistentStorage do
   # setup module attribute based on application env at compile time to allow
   # configuration of this module by applications that use it
 
-  @config Application.get_all_env :persistent_storage
-  @tables Enum.into @config[:tables], %{}
+  @tables Application.get_env :persistent_storage, :tables, []
 
   @doc """
   OTP Application start callback.
 
-  Performs initialization and returns a dummy supervisor with no children, since
-  there are no worker processes needed by PersistentStorage.   Creates ets table
-  for each configured storage, with supervisor setup to own them.
+  Starts a supervisor with only one child process to own ETS tables.
   """
   @spec start(atom, term) :: {:ok, pid} | {:error, String.t}
   def start(_type, _args) do
-    # see http://stackoverflow.com/questions/11948392/erlang-is-it-ok-to-write-application-without-a-supervisor
     import Supervisor.Spec, warn: false
-    {:ok, supervisor} = Supervisor.start_link [], [strategy: :one_for_one, name: PersistentStorage.Supervisor]
-    for {table, _opts} <- @tables do
-      IO.puts "making ets #{ets_table_for(table)}"
-      :ets.new ets_table_for(table), [:set, :public, :named_table, {:heir, supervisor, nil}]
+    children = [ worker(__MODULE__, []) ]
+    Supervisor.start_link children, [strategy: :one_for_one, name: PersistentStorage.Supervisor]
+  end
+
+  @doc false
+  @spec start_link() :: {:ok, pid()}
+  def start_link do
+    pid = spawn_link fn ->
+      for {table, _opts} <- @tables do
+        table_id = ets_table_for(table)
+        ^table_id = :ets.new table_id, [ :set, :public, :named_table ]
+      end
+      receive do
+        after :infinity -> :ok
+      end
     end
-    {:ok, supervisor}
+    {:ok, pid}
   end
 
   @doc """
@@ -159,6 +166,7 @@ defmodule PersistentStorage do
         other
     end
   end
+
 
   ### private helpers
 

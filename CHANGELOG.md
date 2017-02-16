@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.10.1 (16-Feb-2017)
+
+- removed inappropriate debugging IO.puts that was left in code
+- added a dedicated process to own the ets tables
+- added warnings
+
 ## v0.10.0 (15-Feb-2017)
 
 __IMPORTANT!!__  -- The API has changed a fair in an incompatible way since v0.9.x. It also has a new home (for now) at ghitchens/persistent_storage

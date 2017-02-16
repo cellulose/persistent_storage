@@ -66,21 +66,28 @@ config :persistent_storage, tables: [
 ]
 ```
 
-#### Usage
+#### Writing
+
+Writing to setttings, assuming the configuration in the previous section.  This will create the file at /root/storage/settings/network.
 
 ```elixir
-# write to settings (this will create the file at
-# /root/storage/settings/network
 iex> PersistentStorage.put :settings, :network, %{
   ip_address: {192,168,1,100}, mode: :static
 }
+```
 
-# later, we can read it (this reads from ets cache if possible)
+#### Reading
+
+Assuming we wrote as above, we can read it (this reads from ets cache if possible)...
+
+```elixir
 iex> PersistentStorage.get :settings, :network
 %{ip_address: {192,168,1,100}, mode: :static}
+```
+Read some provisioning data -- for purposes of this example, we
+assume it was written when device  was first flashed)
 
-# read some provisioning data -- for purposes of this example, we
-# assume it was written when device  was first flashed)
+```elixir
 iex> PersistentStorage.get :provisioning, :device_data
 [serial_number: "302F1010", mfg_timestamp: "2016-05-04T03:28:35.279977Z"]
 ```
