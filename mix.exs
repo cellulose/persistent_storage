@@ -1,24 +1,35 @@
 defmodule PersistentStorage.Mixfile do
   use Mix.Project
 
+  @version "0.10.0"
+
   def project do
     [app: :persistent_storage,
-     version: version,
-     elixir: "~> 1.0",
-     source_url: "https://github.com/cellulose/persistent_storage",
-     homepage_url: "http://cellulose.io",
-     deps: deps]
+     version: @version,
+     elixir: "~> 1.4",
+     deps: deps(),
+     description: "Brain dead simple file-based storage for embedded systems",
+     package: package(),
+     name: "PersistentStorage",
+     docs: [
+       source_ref: "v#{@version}", main: "PersistentStorage",
+       source_url: "https://github.com/cellulose/persistent_storage",
+#       main: "extra-readme",
+       extras: [ "README.md", "CHANGELOG.md"] ]]
+  end
+
+  def application do
+    [ mod: {PersistentStorage, []} ]
   end
 
   defp deps do
-    [{:earmark, "~> 0.1", only: :dev},
-     {:ex_doc, "~> 0.7", only: :dev}]
+    [{:ex_doc, "~> 0.11", only: :dev}]
   end
 
-  defp version do
-    case File.read("VERSION") do
-      {:ok, ver} -> String.strip ver
-      _ -> "0.0.0-dev"
-    end
+  defp package do
+    [ maintainers: ["Garth Hitchens", "Chris Dutton"],
+      licenses: ["MIT"],
+      links: %{github: "https://github.com/cellulose/persistent_storage"},
+      files: ~w(lib config) ++ ~w(README.md CHANGELOG.md LICENSE mix.exs) ]
   end
 end
