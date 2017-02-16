@@ -2,64 +2,85 @@
 
 [![Build Status](https://travis-ci.org/joelbyler/persistent_storage.svg?branch=master)](https://travis-ci.org/joelbyler/persistent_storage)
 
-  Perisistently stores erlang terms to the filesystem
+Stores and retrieves terms from small flat files on embedded systems.
 
-  A trivial way to write simple stuff that you might need "next time you run".
+`PersistentStorage` is intended for trivial persistent storage of basic system and application configuration information on embedded systems.   It is not intended to be a replacement for dets, sqlite, or many other far more capable databases.  It favors simplicity and robustness over performance and capability.
 
-  Implemented as a singleton -- you can only have one instance, for simplicity.
+**IMPORTANT -- INCOMPATIBLE API CHANGE**
 
-  Performance is good because although each term is stored as a file, the reads
-  come from a cache, so there is no need to cache locally.
+The API has has changed significantly for PersistentStorage 0.10.x -- you can find a summary of the changes in the [[CHANGELOG]].
 
-## Usage Example
+If your project requires compatibility with the old (now deprecated) api, please make sure you specify "~> 0.9.0" in your project dependencies.
 
-  Setup PersistentStorage, including the path in the filesystem where files
-  will be stored. This must be called after each boot cycle before put/1, put/2
-  or get/1, get/2 are called.
+## Philosophy
 
-      PersistentStorage.setup path: "/path/to/storage/area"
-      :ok
+PersistentStorage manages one more more persistent _tables_, each identified by an atom.  Each table maps to a user-configured directory in the filesystem.   The table keys and associated directories are configured in the application environment using `config.exs`.
 
-  Then, to store data you would:
+Each table persists a set of _keys_ and associated values, where each key maps to a flat file in the table's directory that holds the serialized term.
 
-      PersistentStorage.put :router_ip_address, {192,168,15,1}
-      ...or...
-      PersistentStorage.put router_ip_address: {192,168,15,1}
+The simple one-file-per-key/value model favors robustness over speed, reducing risk of write corruption on embedded devices that may power down unexpectedly.
 
-  Then, to retrieve the stored data:
+Writes always write and close a file, so are very slow (but plenty fast enough for the kind of device configuration data that doesn't churn frequently).
 
-      PersistentStorage.get :router_ip_address
+Reads of a key from disk are slow the first time (they open and read a file), but the term is subsequently cached in ets, so further reads of the same key in a storage area are very fast, and no application-level cacheing is needed.
 
+## Installation
 
-## Contributing
+1. Add `persistent_storage` to your list of dependencies in `mix.exs`:
 
-We appreciate any contribution to Cellulose Projects, so check out our [CONTRIBUTING.md](CONTRIBUTING.md) guide for more information. We usually keep a list of features and bugs [in the issue tracker][2].
+  ```elixir
+  def deps do
+    [{:persistent_storage, "~> 0.10.0"}]
+  end
+  ```
 
-## Building documentation
+2. Ensure `persistent_storage` is started before your application:
 
-Building the documentation requires [ex_doc](https://github.com/elixir-lang/ex_doc) to be installed. Please refer to
-their README for installation instructions and usage instructions.
+  ```elixir
+  def application do
+    [applications: [:persistent_storage]]
+  end
+  ```
 
-## License
+## Usage
 
-The MIT License (MIT)
+Let's say your device wants a couple kinds of non-volatile storage.  
 
-Copyright (c) 2015 Chris Dutton, Garth Hitchens
+The first kind, which we'll call `settings`, will be used for storing user
+settings. We're going to put it on the standard Nerves application data volume, `/root`.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+We're going to assume that the /root partition might be rewritten anytime the user does something "resets to factory settings".
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+The second kind, which we'll call `provisioning`, is more persistent, and is perhaps on a volume usually mounted read-only (like /boot), that persists even when the application volume gets reformatted.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+#### Configuration
+
+Define one or more tables in your config.exs as follows...
+
+```elixir
+# my_app/config/config.exs
+...
+config :persistent_storage, tables: [
+  settings: [path: "/root/storage/settings"],
+  provisioning: [path: "/boot/provisioning"]
+]
+```
+
+#### Usage
+
+```elixir
+# write to settings (this will create the file at
+# /root/storage/settings/network
+iex> PersistentStorage.put :settings, :network, %{
+  ip_address: {192,168,1,100}, mode: :static
+}
+
+# later, we can read it (this reads from ets cache if possible)
+iex> PersistentStorage.get :settings, :network
+%{ip_address: {192,168,1,100}, mode: :static}
+
+# read some provisioning data -- for purposes of this example, we
+# assume it was written when device  was first flashed)
+iex> PersistentStorage.get :provisioning, :device_data
+[serial_number: "302F1010", mfg_timestamp: "2016-05-04T03:28:35.279977Z"]
+```

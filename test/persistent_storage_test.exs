@@ -1,57 +1,35 @@
 defmodule PersistentStorageTest do
   use ExUnit.Case
+  # doctest PersistentStorage
 
-  test "Setup with default path" do
-    cleanup_storage_and_setup
-    assert File.exists? "/tmp"
+  @test1_path "/tmp/persistent_storage_test_1"
+  @test2_path "/tmp/persistent_storage_test_2"
+
+  test "test basic storage behavior" do
+    File.rm_rf! @test1_path
+    File.rm_rf! @test2_path
+    assert nil == PersistentStorage.get :test1, :this
+    assert File.exists?(@test1_path) == false
+    assert :ok = PersistentStorage.put :test1, this: "that"
+    assert nil == PersistentStorage.get :test1, :someotherkey
+    assert :foo == PersistentStorage.get :test1, :someotherkey, :foo
+    assert "that" == PersistentStorage.get :test1, :this
+    assert File.exists?(@test1_path) == true
+    assert File.exists?(@test2_path) == false
+    PersistentStorage.put :test2, test: {:a, 2}
+    assert File.exists?(@test2_path) == true
+    assert {:a, 2} == PersistentStorage.get :test2, :test
+    PersistentStorage.put :test1, _weird_: %{strange: [{:value}]}
+    assert File.exists? Path.join(@test1_path, "/this.storage")
+    assert File.exists? Path.join(@test1_path, "/_weird_.storage")
+    assert File.exists? Path.join(@test2_path, "/test.storage")
+    assert "that" == PersistentStorage.get :test1, :this
+    assert %{strange: [{:value}]} == PersistentStorage.get :test1, :_weird_
+    assert %{strange: [{:value}]} == PersistentStorage.get :test1, :_weird_, :bogus_default
+    PersistentStorage.put :test1, _weird_: %{strange: [{:value}]}
+    assert %{strange: [{:value}]} == PersistentStorage.get :test1, :_weird_
+    PersistentStorage.put :test1, _weird_: [:science]
+    assert [:science] == PersistentStorage.get :test1, :_weird_
   end
 
-  test "Setup with optional path" do
-    cleanup_storage_and_setup(storage_path)
-    assert File.exists? storage_path
-  end
-
-  test "Store data" do
-    cleanup_storage_and_setup(storage_path)
-    assert File.exists? storage_path
-    PersistentStorage.put this: "that", _weird_: %{strange: [{:value}]}
-    assert File.exists? storage_path <> "/this.storage"
-    assert File.exists? storage_path <> "/_weird_.storage"
-    assert "that" == PersistentStorage.get :this
-  end
-
-  test "Get nil for undefined key" do
-    cleanup_storage_and_setup(storage_path)
-    assert nil == PersistentStorage.get :somekey
-  end
-
-  test "Get default value on get" do
-    cleanup_storage_and_setup(storage_path)
-    assert "something" == PersistentStorage.get :somekey, "something"
-  end
-
-  test "Store twice in same key" do
-    cleanup_storage_and_setup(storage_path)
-    PersistentStorage.put _weird_: %{strange: [{:value}]}
-    assert %{strange: [{:value}]} == PersistentStorage.get :_weird_
-    PersistentStorage.put _weird_: %{strange: [{:value}]}
-  end
-
-  test "persistent_storage seems to work" do
-    cleanup_storage_and_setup(storage_path)
-    PersistentStorage.put this: "that", _weird_: %{strange: [{:value}]}
-    assert "that" == PersistentStorage.get :this
-		assert "something" == PersistentStorage.get :somekey, "something"
-    PersistentStorage.put :somekey, "something_else"
-		assert "something_else" == PersistentStorage.get :somekey, "something"
-    assert %{strange: [{:value}]} == PersistentStorage.get :_weird_
-    PersistentStorage.put this: "that", _weird_: %{strange: [{:value}]}
-  end
-
-  defp cleanup_storage_and_setup(path \\ "/tmp") do
-    File.rm_rf path
-    PersistentStorage.setup path: path
-  end
-
-  defp storage_path, do: "/tmp/storage_wherever"
 end

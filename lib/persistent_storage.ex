@@ -1,155 +1,175 @@
 defmodule PersistentStorage do
 
   @moduledoc """
-  Perisistently store erlang terms to the filesystem
+  Stores and retrieves terms from small flat files on embedded systems.
 
-  A trivial way to write simple stuff that you might need "next time you run".
+  `PersistentStorage` is intended for trivial persistent storage of basic system
+  and application configuration information on embedded systems.   It is not
+  intended to be a replacement for dets, sqlite, or many other far more capable
+  databases.  It favors simplicity and robustness over performance and
+  capability.
 
-  Implemented as a singleton -- you can only have one instance, for simplicity.
+  ## Configuration
 
-  Performance is good because although each term is stored as a file, the reads
-  come from a cache, so there is no need to cache locally.
+  Define one or more storage areas in your config.exs as follows...
 
-  ## Examples
+  ```elixir
+  # my_app/config/config.exs
+  ...
+  config :persistent_storage, tables: [
+    settings: [path: "/root/storage/settings"],
+    provisioning: [path: "/boot/provisioning"]
+  ]
+  ```
 
-  Setup PersistentStorage, including the path in the filesystem where files
-  will be stored
+  The `:path` option is required is used to specify the filesystem path where
+  files will be written.
 
-      PersistentStorage.setup path: "/path/to/storage/area"
+  ## Usage
 
-  Then, to store data you would:
+  ```elixir
+  # write to settings (this will create the file at
+  # /root/storage/settings/network
+  iex> PersistentStorage.put :settings, :network, %{
+    ip_address: {192,168,1,100}, mode: :static
+  }
 
-      PersistentStorage.put :router_ip_address, {192,168,15,1}
-      ...or...
-      PersistentStorage.put router_ip_address: {192,168,15,1}
+  # later, we can read it (this reads from ets cache if possible)
+  iex> PersistentStorage.get :settings, :network
+  %{ip_address: {192,168,1,100}, mode: :static}
 
-  Then, to retrieve the stored data:
-
-      PersistentStorage.get :router_ip_address
+  # read some provisioning data -- for purposes of this example, we
+  # assume it was written when device  was first flashed)
+  iex> PersistentStorage.get :provisioning, :device_data
+  [serial_number: "302F1010", mfg_timestamp: "2016-05-04T03:28:35.279977Z"]
+  ```
   """
-  @ets_table  :persistent_storage_cache
-  @path_key   :__storage_path__
 
-  @type key :: any
+  @type table :: atom
+  @type key :: atom
   @type value :: any
-  @type t :: list | map
   @type posix :: :file.posix
 
+  # setup module attribute based on application env at compile time to allow
+  # configuration of this module by applications that use it
+
+  @config Application.get_all_env :persistent_storage
+  @tables Enum.into @config[:tables], %{}
+
   @doc """
-  Sets up `ets_table` and path where persistent files will be written
-  to persistent drive.
+  OTP Application start callback.
 
-  ## Options
-
-  The `:path` option is used to specify the filesystem path where files
-  will be written. Default path is `/tmp`
+  Performs initialization and returns a dummy supervisor with no children, since
+  there are no worker processes needed by PersistentStorage.   Creates ets table
+  for each configured storage, with supervisor setup to own them.
   """
-  @spec setup(t) :: :ok
-  def setup(args \\ []) do
-    path = Dict.get args, :path, "/tmp"
-    File.mkdir_p! path
-    :ets.new @ets_table, [:set, :public, :named_table]
-    :ets.insert @ets_table, [{@path_key, path}]
-    :ok
+  @spec start(atom, term) :: {:ok, pid} | {:error, String.t}
+  def start(_type, _args) do
+    # see http://stackoverflow.com/questions/11948392/erlang-is-it-ok-to-write-application-without-a-supervisor
+    import Supervisor.Spec, warn: false
+    {:ok, supervisor} = Supervisor.start_link [], [strategy: :one_for_one, name: PersistentStorage.Supervisor]
+    for {table, _opts} <- @tables do
+      IO.puts "making ets #{ets_table_for(table)}"
+      :ets.new ets_table_for(table), [:set, :public, :named_table, {:heir, supervisor, nil}]
+    end
+    {:ok, supervisor}
   end
 
   @doc """
-  Put the value of each key passed into storage (keys must be atoms)
+  Puts a single key and its associated value into storage.
 
-  ## Examples
+  This is simple syntactic sugar for put/3 to allow specifying arguments
+  with a keyword list consisting of a single key/value pair.
 
-      PersistentStorage.put router_ip_address: {192,168,15,1}
-      PersistentStorage.put [store: :something, multiple: :this_time]
+  ## Example
 
+  ```elixir
+  PersistentStorage.put :network_settings, router_ip_address: {192,168,15,1}
+  ```
   """
-  @spec put(t) :: :ok
-  def put(dict) when is_list(dict) do
-    Enum.map dict, fn({k,v}) -> put(k,v) end
-    :ok
-  end
+  @spec put(table, [{key, value}]) :: :ok | {:error, posix}
+  def put(table, [{key, value}]), do: put(table, key, value)
 
   @doc """
-  Put a single term into storage under a key (key must be an atom)
+  Put a single key and its associated value into storage.
 
-  ## Examples
+  ## Example
 
-      PersistentStorage.put :router_ip_address, {192,168,15,1}
+  ```elixir
+  PersistentStorage.put :network_settings, :router_ip_address, {192,168,15,1}
+  ```
   """
-  @spec put(key, value) :: :ok
-  def put(key, term) do
-    :ets.insert @ets_table, [{key, term}]
-    File.write! key_to_file_path(key), :erlang.term_to_binary(term)
-    :ok
-  end
-
-  @doc """
-  Get value for the given key. If dict does not contain key, returns
-  default (or nil if not provided).
-
-  Uses cache if possible, otherwise reads from disk
-
-  ## Examples
-
-      PersistentStorage.get :router_ip_address
-      PersistentStorage.get :router_ip_address, {0,0,0,0}
-  """
-  @spec get(key, value) :: value
-  def get(key, default \\ nil) do
-    case :ets.lookup(@ets_table, key) do
-      [{^key, value}] -> value
-      _ -> get_from_persistent_storage(key, default)
+  @spec put(table, key, value) :: :ok | {:error, posix}
+  def put(table, key, term) do
+    :ets.insert ets_table_for(table), [{key, term}]
+    case File.mkdir_p(directory_for(table)) do
+      :ok ->
+        File.write(path_for(table, key), :erlang.term_to_binary(term))
+      error ->
+        error
     end
   end
 
   @doc """
-  Removes keys in dictionary from table and persistent drive
+  Return the value associated with the given key in the specified storage.
+
+  If the storage storage does not contain a key, returns the value of `default`
+  (or nil if `default` is not provided).
+
+  Uses the ets cache if possible, otherwise reads from disk.
+
+  ## Examples
+
+  ```elixir
+  PersistentStorage.get :network_settings, :router_ip_address
+  PersistentStorage.get :network_settings, :router_ip_address, {0,0,0,0}
+  ```
   """
-  @spec delete(t) :: :ok
-  def delete(dict) when is_list(dict) do
-    Enum.map(dict, fn(k) -> delete(k) end)
-    :ok
-  end
-
-  @doc "Remove key from table and persistent drive"
-  @spec delete(key) :: :ok | {:error, posix}
-  def delete(key) do
-    :ets.delete(@ets_table, key)
-    remove_from_persistent_storage(key)
-  end
-
-  # Attempts to read file from persistent drive and return
-  # value. If file does not exist default value will be
-  # returned
-  defp get_from_persistent_storage(key, default) do
-    case File.read(key_to_file_path(key)) do
-      {:ok, ""} ->
-        default
-      {:ok, contents} ->
-        term = :erlang.binary_to_term(contents)
-        :ets.insert @ets_table, [{key, term}]  # cache for future read
-        term
-      _ ->
-        default
+  @spec get(table, key, any) :: any
+  def get(table, key, default_value \\ nil) do
+    case :ets.lookup(ets_table_for(table), key) do
+      [{^key, value}] ->
+        value
+      _ -> # not in ets cache
+        case File.read(path_for(table, key)) do
+          {:ok, contents} when (contents != "") ->
+            term = :erlang.binary_to_term(contents)
+            :ets.insert ets_table_for(table), [{key, term}]
+            term
+          _ ->
+            default_value
+        end
     end
   end
 
-  # Removes file from persistent drive for key
-  defp remove_from_persistent_storage(key) do
-    case File.rm(key_to_file_path(key)) do
-      {:error, :enoent} -> :ok
-      other -> other
+  @doc """
+  Removes an entry from storage.
+
+  ```elixir
+  PersistentStorage.delete :network_settings, :router_ip_address
+  ```
+  """
+  @spec delete(table, key) :: :ok
+  def delete(table, key) do
+    :ets.delete(ets_table_for(table), key)
+    case File.rm(path_for(table, key)) do
+      {:error, :enoent} ->
+        :ok
+      other ->
+        other
     end
   end
 
-  # Converts key to file path using path stored in ets_table
-  # stored in setup/1
-  defp key_to_file_path(key) do
-    [{@path_key, path}] = :ets.lookup(@ets_table, @path_key)
-    Path.join(path, key_to_file_name(key))
-  end
+  ### private helpers
 
-  defp key_to_file_name(key) do
-    "#{key}.storage"
-  end
+  # returns the ets table for the specified storage
+  defp ets_table_for(table), do: :"persistent_storage.#{table}"
 
+  # return a directory given a storage name
+  defp directory_for(table), do: @tables[table][:path]
+
+  # given a storage and key, return a file path
+  defp path_for(table, key) do
+    Path.join directory_for(table), "#{key}.storage"
+  end
 end
